@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>贝塞尔曲线</title>
+</head>
+
+<body>
+    <canvas id="can" width="800" height="800" style="border : 1px solid #ccc"></canvas>
+    <script>
+        function Bezier() {}
+        Bezier.prototype = {
+            init: function (selector) {
+                this.can = document.getElementById(selector);
+                this.ctx = can.getContext("2d");
+                //获取画布的边界，一次获取节省性能
+                this.can_size = {
+                    width: this.can.getAttribute("width"),
+                    height: this.can.getAttribute("height")
+                }
+                //小球移动的边界
+                this.boundry = {
+                    width: this.can_size.width * 0.1,
+                    maxWidth : this.can_size.width,
+                    height : 0,
+                    maxHeight: this.can_size.height
+                }
+                //初始化，和存贮控制点的位置
+                this.init_position = {
+                    cp1: {
+                        x: this.can_size.width * 0.1,
+                        y: this.can_size.height * 0.1
+                    },
+                    cp2: {
+                        x: this.can_size.width * 0.9,
+                        y: this.can_size.height * 0.9
+                    }
+                }
+                //获取坐标系的大小
+                this.address_size = {
+                    x: this.can_size.width * 0.8,
+                    y: this.can_size.height * 0.8
+                }
+                //bind生成复制函数的暂存变量，方便清除
+                this.temp = null;
+                //初始化当前控制点
+                this.cp = "";
+                //判断兼容性问题
+                if (this.ctx) {
+                    //初始化贝塞尔
+                    this.drawMain();
+                    this.bindEvent();
+                }
+            },
+            bindEvent: function () {
+                this.can.addEventListener("mousedown", function () {
+                    document.addEventListener("mousemove", this.temp = this.handlerMover.bind(this));
+                }.bind(this));
+                document.addEventListener("mouseup", function (evt) {
+                    document.removeEventListener("mousemove", this.temp);
+                }.bind(this))
+            },
+            handlerMover: function (evt) {
+                var e = evt || event;
+                var x = e.offsetX;
+                var y = e.offsetY;
+                //边界判断
+                x < this.boundry.width ? x = this.boundry.width : "";
+                x > this.boundry.maxWidth ? x = this.boundry.maxWidth : "";
+                y < this.boundry.height? y = this.boundry.height : "";
+                y > this.boundry.maxHeight ? y = this.boundry.maxHeight : "";
+                //判断贝塞尔的那条边，用距离判断
+                var judge_cp1 = Math.pow((x - this.init_position.cp1.x), 2) + Math.pow((y - this.init_position
+                    .cp1.y), 2);
+                var judge_cp2 = Math.pow((x - this.init_position.cp2.x), 2) + Math.pow((y - this.init_position
+                    .cp2.y), 2);
+                //距离谁近就用谁，相等就用正在拖动的点或上次拖动的点
+                if (judge_cp1 < judge_cp2) {
+                    this.cp = "cp1";
+                    this.drawMain(x, y, "cp1");
+                }else if(judge_cp1 == judge_cp2){
+                    this.drawMain(x, y, this.cp);
+                } else {
+                    this.drawMain(x, y, "cp2");
+                    this.cp = "cp2";
+                }
+                
+
+            },
+            drawMain: function (x, y, direction) {
+                this.ctx.clearRect(0, 0, this.can_size.width, this.can_size.height);
+                //重绘坐标系原点
+                this.drawAddress();
+                this.drawCircle(this.can_size.width * 0.1, this.can_size.height * 0.9, "black");
+                this.drawCircle(this.can_size.width * 0.9, this.can_size.height * 0.1, "black");
+
+                //判断拖动的是哪个控制点
+                if (direction === "cp1") {
+                    this.init_position.cp1.x = x;
+                    this.init_position.cp1.y = y;
+                } else if (direction === "cp2") {
+                    this.init_position.cp2.x = x;
+                    this.init_position.cp2.y = y;
+                }
+                this.ctx.save();
+                //控制点一
+                this.ctx.beginPath();
+                this.ctx.moveTo(
+                    this.can_size.width * 0.1,
+                    this.can_size.height * 0.9);
+                this.ctx.lineTo(
+                    this.init_position.cp1.x,
+                    this.init_position.cp1.y);
+                this.ctx.stroke();
+                this.drawCircle(this.init_position.cp1.x,
+                    this.init_position.cp1.y, "red");
+
+                //控制点二
+                this.ctx.beginPath();
+                this.ctx.moveTo(
+                    this.can_size.width * 0.9,
+                    this.can_size.height * 0.1);
+                this.ctx.lineTo(
+                    this.init_position.cp2.x,
+                    this.init_position.cp2.y);
+                this.ctx.stroke();
+                this.drawCircle(this.init_position.cp2.x,
+                    this.init_position.cp2.y, "skyblue");
+                //画贝塞尔曲线
+                this.ctx.beginPath();
+                this.ctx.moveTo(
+                    this.can_size.width * 0.1,
+                    this.can_size.height * 0.9);
+                this.ctx.bezierCurveTo(
+                    this.init_position.cp1.x,
+                    this.init_position.cp1.y,
+                    this.init_position.cp2.x,
+                    this.init_position.cp2.y,
+                    this.can_size.height * 0.9,
+                    this.can_size.width * 0.1);
+                this.ctx.stroke();
+                this.ctx.restore();
+
+                //绘制坐标文本
+                this.drawText();
+            },
+            drawText: function () {
+                this.ctx.save();
+                this.ctx.beginPath();
+                this.ctx.font = "40px sans-serif";
+                //坐标转换大小
+                //控制点一
+                //转换公式 x1 = （当前鼠标的坐标 - 当前坐标系X轴的初始位置）/当前坐标系X轴的长度
+                //转换公式 y1 = （当前坐标系Y轴的长度 - 当前鼠标的坐标 + 当前坐标系Y轴的初始位置）/当前坐标系Y轴的长度
+                //控制点二同理
+                x1 = ((this.init_position.cp1.x - this.can_size.width * 0.1) / 
+                        this.address_size.x).toFixed(2);
+                y1 = ((this.address_size.y - this.init_position.cp1.y + this.can_size.height * 0.1) /
+                        this.address_size.y).toFixed(2);
+
+                x2 = ((this.init_position.cp2.x - this.can_size.width * 0.1) / 
+                this.address_size.x).toFixed(2);
+                y2 = ((this.address_size.y - this.init_position.cp2.y + this.can_size.height * 0.1) /
+                 this.address_size.y).toFixed(2);
+
+                this.ctx.textAlign = "center";
+                this.ctx.fillStyle = "black";
+                this.ctx.fillText("cubic-bezier(" + x1 + " , " + y1 + " , " + x2 + " , " + y2 + ")", this
+                    .can_size.width / 2, this
+                    .can_size.height * 0.05);
+                this.ctx.restore();
+            },
+            drawAddress: function () {
+                //在当前画布大小的80%区域绘制坐标系
+                this.ctx.save();
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.can_size.width * 0.1, this.can_size.height * 0.1);
+                this.ctx.lineTo(this.can_size.width * 0.1, this.can_size.height * 0.9);
+                this.ctx.lineTo(this.can_size.height * 0.9, this.can_size.width * 0.9);
+                this.ctx.strokeStyle = "#ccc";
+                this.ctx.stroke();
+                this.ctx.restore();
+            },
+            drawCircle: function (x, y, color) {
+                //绘制控制点和原点，颜色可选
+                this.ctx.save();
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, 10, 0, Math.PI * 2);
+                this.ctx.fillStyle = color;
+                this.ctx.fill();
+                this.ctx.restore();
+            },
+        }
+        var bezier = new Bezier();
+        bezier.init("can");
+    </script>
+</body>
+
+</html>
